@@ -1,9 +1,63 @@
-### Loom loading functions
+
+#' Connect to loom file
+#'
+#' @param loom_path A single-element character vector that indicates the path
+#'  to the transcriptome loom file.
+#'
+#' @returns An object of class 'loom' that represents a connection to the loom
+#'  file stored on disk.
+#'
+#' @examples
+#' lpath <- "Path/to/loom"
+#'
+#' lfile <- read_loom(lpath)
 read_loom <- function(loom_path) {
   tryCatch({loomR::connect(filename = loom_path, mode = "r", skip.validate = TRUE)},
            error = function(e) stop(e))
 }
 
+#' Convert loom file to Seuratobject
+#'
+#' @param loom_path A single-element character vector that indicates the path
+#'  to the transcriptome loom file.
+#' @param matrix_rowname_col A single element character vector that indicates
+#'  the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
+#'  This variable will subsequently be used as the feature names for the
+#'  generated sparse matrix.
+#' @param matrix_colname_col A single element character vector that indicates
+#'  the variable (i.e. column) of the column (i.e. cell) metadata in the loom
+#'  file. This variable will subsequently be used as the cell names for the
+#'  generated sparse matrix.
+#' @param seurat_assay_name A single element character vector representing the
+#'  name of the assay in the Seuratobject.
+#' @param seurat_min_cells Include only features in the seuratobject that are
+#'  detected in at least this many cells.
+#' @param seurat_names_field Argument used to get sample name from the cell
+#'  names. Works in conjunction with the 'seurat_names_delim' argument.
+#'   'seurat_names_field' is an integer selecting which substring
+#'   (i.e. delimited by 'seurat_names_delim') should be selected as the sample
+#'   name. The default is 1L (i.e. the first field of the cell name).
+#' @param seurat_names_delim Argument used to get sample name from the cell
+#'  names. Works in conjunction with the 'seurat_names_field' argument.
+#'  'seurat_names_delim' is a single element character vector that represents
+#'  the delimiter used to select the cell name substrings.
+#' @param ... Additional arguments will be given to the
+#'  SeuratObject::CreateSeuratObject() function call.
+#'
+#' @returns A Seuratobject populated with a sparse matrix representing the
+#'  transcriptome data from the loom file located at 'loom_path'.
+#' @export
+#'
+#' @examples
+#' lpath <- "Path/to/loom"
+#'
+#' lseurat <- LoomAsSeurat(lpath,
+#'   matrix_rowname_col = "Gene",
+#'   matrix_colname_col = "CellID",
+#'   seurat_assay_name = "RNA",
+#'   seurat_min_cells = 0,
+#'   seurat_names_field = 1L,
+#'   seurat_names_delim = "_")
 LoomAsSeurat <- function(loom_path,
                          matrix_rowname_col = "Gene",
                          matrix_colname_col = "CellID",
@@ -90,9 +144,62 @@ LoomAsSeurat <- function(loom_path,
   return(lseurat)
 }
 
+#' Convert multiple loom files to a single merged Seuratobject
+#'
+#' @param loom_paths A character vector that indicates the paths to the
+#'  transcriptome loom files.
+#' @param matrix_rowname_col A single element character vector that indicates
+#'  the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
+#'  This variable will subsequently be used as the feature names for the
+#'  generated sparse matrix.
+#' @param matrix_colname_col A single element character vector that indicates
+#'  the variable (i.e. column) of the column (i.e. cell) metadata in the loom
+#'  file. This variable will subsequently be used as the cell names for the
+#'  generated sparse matrix.
+#' @param seurat_assay_name A single element character vector representing the
+#'  name of the assay in the Seuratobject.
+#' @param seurat_min_cells Include only features in the seuratobject that are
+#'  detected in at least this many cells.
+#' @param seurat_names_field Argument used to get sample name from the cell
+#'  names. Works in conjunction with the 'seurat_names_delim' argument.
+#'   'seurat_names_field' is an integer selecting which substring
+#'   (i.e. delimited by 'seurat_names_delim') should be selected as the sample
+#'   name. The default is 1L (i.e. the first field of the cell name).
+#' @param seurat_names_delim Argument used to get sample name from the cell
+#'  names. Works in conjunction with the 'seurat_names_field' argument.
+#'  'seurat_names_delim' is a single element character vector that represents
+#'  the delimiter used to select the cell name substrings.
+#' @param ... Additional arguments will be given to the
+#'  SeuratObject::CreateSeuratObject() function call.
+#'
+#' @returns A Seuratobject populated with a sparse matrix representing the
+#'  transcriptome data from the loom files located at 'loom_paths'.
+#'  The 'orig.idents' variable in the cell metadata is used to identify from
+#'  which sample each cell came from in the merged object. This 'orig.idents'
+#'  gets chosen based on the 'seurat_names_field' and 'seurat_names_delim'
+#'  arguments.
+#' @export
+#'
+#' @examples
+#' lpaths <- c("Path/to/loomfile1",
+#'             "Path/to/loomfile2",
+#'             "Path/to/loomfile3")
+#'
+#' lseurat <- LoomAsSeurat(lpath,
+#'   matrix_rowname_col = "Gene",
+#'   matrix_colname_col = "CellID",
+#'   seurat_assay_name = "RNA",
+#'   seurat_min_cells = 0,
+#'   seurat_names_field = 1L,
+#'   seurat_names_delim = "_")
 MultiLoomAsSeurat <- function(loom_paths,
-                              matrix_rowname_col,
-                              matrix_colname_col, ...) {
+                              matrix_rowname_col = "Gene",
+                              matrix_colname_col = "CellID",
+                              seurat_assay_name = "RNA",
+                              seurat_min_cells = 0,
+                              seurat_names_field = 1L,
+                              seurat_names_delim = "_",
+                              ...) {
 
   # Check if file paths exist
   if (any(file.exists(loom_paths) == FALSE)) {
@@ -102,12 +209,12 @@ MultiLoomAsSeurat <- function(loom_paths,
 
   loom_seurat_list <- lapply(loom_paths, function(lpath)
     LoomAsSeurat(lpath,
-                 matrix_rowname_col = "Gene",
-                 matrix_colname_col = "CellID",
-                 seurat_assay_name = "RNA",
-                 seurat_min_cells = 0,
-                 seurat_names_field = 1L,
-                 seurat_names_delim = "_",
+                 matrix_rowname_col = matrix_rowname_col,
+                 matrix_colname_col = matrix_colname_col,
+                 seurat_assay_name = seurat_assay_name,
+                 seurat_min_cells = seurat_min_cells,
+                 seurat_names_field = seurat_names_field,
+                 seurat_names_delim = seurat_names_delim,
                  ...)
   )
 
