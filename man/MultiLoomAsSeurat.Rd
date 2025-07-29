@@ -16,8 +16,9 @@ MultiLoomAsSeurat(
 )
 }
 \arguments{
-\item{loom_paths}{A character vector that indicates the paths to the
-transcriptome loom files.}
+\item{loom_paths}{A named character vector that indicates the paths to the
+transcriptome loom files. The Name attribute will be used to indicate which
+cell came from which loom file.}
 
 \item{matrix_rowname_col}{A single element character vector that indicates
 the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
@@ -61,11 +62,16 @@ arguments.
 Convert multiple loom files to a single merged Seuratobject
 }
 \examples{
-lpaths <- c("Path/to/loomfile1",
-            "Path/to/loomfile2",
-            "Path/to/loomfile3")
+# Get named vector of loom file paths
+lpaths <- c("i1_ES" = system.file("extdata", "i1_ES_subsample.loom",
+                                   package = "LoadSciLooms"),
+            "i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
+                                   package = "LoadSciLooms"),
+            "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
+                                    package = "LoadSciLooms"))
 
-lseurat <- LoomAsSeurat(lpath,
+# Load loom files as seurat
+lseurat <- MultiLoomAsSeurat(lpaths,
   matrix_rowname_col = "Gene",
   matrix_colname_col = "CellID",
   seurat_assay_name = "RNA",

@@ -57,7 +57,8 @@ transcriptome data from the loom file located at 'loom_path'.
 Convert loom file to Seuratobject
 }
 \examples{
-lpath <- "Path/to/loom"
+lpath <- system.file("extdata", "i1_ES_subsample.loom",
+                      package = "LoadSciLooms")
 
 lseurat <- LoomAsSeurat(lpath,
   matrix_rowname_col = "Gene",
