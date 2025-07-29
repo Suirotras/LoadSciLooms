@@ -1,21 +1,3 @@
-
-#' Connect to loom file
-#'
-#' @param loom_path A single-element character vector that indicates the path
-#'  to the transcriptome loom file.
-#'
-#' @returns An object of class 'loom' that represents a connection to the loom
-#'  file stored on disk.
-#'
-#' @examples
-#' lpath <- "Path/to/loom"
-#'
-#' lfile <- read_loom(lpath)
-read_loom <- function(loom_path) {
-  tryCatch({loomR::connect(filename = loom_path, mode = "r", skip.validate = TRUE)},
-           error = function(e) stop(e))
-}
-
 #' Convert loom file to Seuratobject
 #'
 #' @param loom_path A single-element character vector that indicates the path
@@ -49,7 +31,8 @@ read_loom <- function(loom_path) {
 #' @export
 #'
 #' @examples
-#' lpath <- "Path/to/loom"
+#' lpath <- system.file("extdata", "i1_ES_subsample.loom",
+#'                       package = "LoadSciLooms")
 #'
 #' lseurat <- LoomAsSeurat(lpath,
 #'   matrix_rowname_col = "Gene",
@@ -67,14 +50,18 @@ LoomAsSeurat <- function(loom_path,
                          seurat_names_delim = "_",
                          ...) {
 
+  # Capture loom_path's value immediately to avoid promise issues in handlers
+  loom_path_val <- loom_path
+
   ### Connect to loom file
   lfile <- withCallingHandlers(
-    tryCatch(read_loom(loom_path), error = function(e) {
-      stop(sprintf("Error opening loom file: %s\nOriginal error message:\n%s",
-                   loom_path, conditionMessage(e)), call. = FALSE)
-    }),
+    tryCatch(rhdf5::H5Fopen(loom_path_val, flags = "H5F_ACC_RDONLY"),
+             error = function(e) {
+               stop(sprintf("Error opening loom file: %s\nOriginal error message:\n%s",
+                            loom_path_val, conditionMessage(e)), call. = FALSE)
+             }),
     warning = function(w) {
-      message(sprintf("Warning while opening loom file: %s", loom_path))
+      message(sprintf("Warning while opening loom file: %s", loom_path_val))
       message("Original warning message:\n")
       message(conditionMessage(w))
       invokeRestart("muffleWarning")
@@ -82,37 +69,39 @@ LoomAsSeurat <- function(loom_path,
   )
 
   # Add a check for successful connection
-  if (!inherits(lfile, "loom")) {
-    stop(sprintf("Failed to connect to loom file at: %s. See above messages for details.", loom_path), call. = FALSE)
+  if (!inherits(lfile, "H5IdComponent")) {
+    stop(sprintf("Failed to connect to loom file at: %s.\nfile connection is not of type 'hdf5'",
+                 loom_path_val), call. = FALSE)
   }
 
   # Close loom files upon exit of function
-  on.exit(lfile$close_all(), add = TRUE)
-
-  ### Collect the metadata and matrix
-  row_meta <- lfile$get.attribute.df(MARGIN = 1)
-  col_meta <- lfile$get.attribute.df(MARGIN = 2)
-  lmatrix <- lfile[["matrix"]]
-
-  ### Convert to sparse matrix
-  lmatrix_sparse <- t(Matrix::Matrix(lmatrix[,], sparse = TRUE))
+  on.exit(rhdf5::h5closeAll(), add = TRUE)
 
   ### Perform checks
-  if (is.null(row_meta[[matrix_rowname_col]])) {
-    stop(sprintf("'%s' is not an existing column in the row metadata of the loom file at path '%s'", matrix_rowname_col, loom_path))
+  if (is.null(lfile$row_attrs[[matrix_rowname_col]])) {
+    stop(sprintf("'%s' is not an existing column in the row metadata of the loom file at path '%s'", matrix_rowname_col, loom_path_val))
   }
 
-  if (is.null(col_meta[[matrix_colname_col]])) {
-    stop(sprintf("'%s' is not an existing column in the column metadata of the loom file at path '%s'", matrix_colname_col, loom_path))
+  if (is.null(lfile$col_attrs[[matrix_colname_col]])) {
+    stop(sprintf("'%s' is not an existing column in the column metadata of the loom file at path '%s'", matrix_colname_col, loom_path_val))
   }
 
-  if (dim(lmatrix_sparse)[1] != length(row_meta$Gene)) {
-    stop(sprintf("The row number for the matrix and the row number for the row-metadata are not equal for the loom file at path '%s' has ", matrix_colname_col, loom_path))
+  mtx_dims <- dim(lfile$matrix)
+
+  if (mtx_dims[2] != length(lfile$row_attrs[[matrix_rowname_col]])) {
+    stop(sprintf("The row number for the matrix and the row number for the row-metadata are not equal for the loom file at path '%s'.", loom_path_val))
   }
 
-  if (dim(lmatrix_sparse)[2] != length(col_meta$CellID)) {
-    stop(sprintf("The column number for the matrix and the row number for the column-metadata are not equal for the loom file at path '%s' has ", matrix_colname_col, loom_path))
+  if (mtx_dims[1] != length(lfile$col_attrs[[matrix_colname_col]])) {
+    stop(sprintf("The column number for the matrix and the row number for the column-metadata are not equal for the loom file at path '%s'.", loom_path_val))
   }
+
+  ### Collect the metadata
+  row_meta <- as.data.frame(lfile$row_attrs)
+  col_meta <- as.data.frame(lfile$col_attrs)
+
+  ### Convert to sparse matrix. Transposing last is more memory efficient.
+  lmatrix_sparse <- Matrix::t(Matrix::Matrix(lfile$matrix, sparse = TRUE))
 
   ### Add row and column names to sparse matrix
   rownames(lmatrix_sparse) <- row_meta[[matrix_rowname_col]]
@@ -146,8 +135,9 @@ LoomAsSeurat <- function(loom_path,
 
 #' Convert multiple loom files to a single merged Seuratobject
 #'
-#' @param loom_paths A character vector that indicates the paths to the
-#'  transcriptome loom files.
+#' @param loom_paths A named character vector that indicates the paths to the
+#'  transcriptome loom files. The Name attribute will be used to indicate which
+#'  cell came from which loom file.
 #' @param matrix_rowname_col A single element character vector that indicates
 #'  the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
 #'  This variable will subsequently be used as the feature names for the
@@ -181,11 +171,16 @@ LoomAsSeurat <- function(loom_path,
 #' @export
 #'
 #' @examples
-#' lpaths <- c("Path/to/loomfile1",
-#'             "Path/to/loomfile2",
-#'             "Path/to/loomfile3")
+#' # Get named vector of loom file paths
+#' lpaths <- c("i1_ES" = system.file("extdata", "i1_ES_subsample.loom",
+#'                                    package = "LoadSciLooms"),
+#'             "i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
+#'                                    package = "LoadSciLooms"),
+#'             "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
+#'                                     package = "LoadSciLooms"))
 #'
-#' lseurat <- LoomAsSeurat(lpath,
+#' # Load loom files as seurat
+#' lseurat <- MultiLoomAsSeurat(lpaths,
 #'   matrix_rowname_col = "Gene",
 #'   matrix_colname_col = "CellID",
 #'   seurat_assay_name = "RNA",
@@ -201,14 +196,42 @@ MultiLoomAsSeurat <- function(loom_paths,
                               seurat_names_delim = "_",
                               ...) {
 
+  # Function to check if it's a named atomic vector
+  is_named_atomic_vector <- function(x) {
+    is.atomic(x) && !is.null(names(x)) && length(x) > 0
+  }
+
+  # Check if loom_paths is named atomic vector
+  if (!(is_named_atomic_vector(loom_paths))) {
+    stop("Loom_paths is not a named vector")
+  }
+
+  path_names <- names(loom_paths)
+
+  # Check if all paths have non-empty names
+  if (any(path_names == "")) {
+    idx_noname <- which(path_names == "")
+    path_noname <- paste(loom_paths[idx_noname], collapse = "\n")
+    stop(sprintf(paste0("The following paths in the 'loom_paths' vector have no ",
+                        "identifiers (i.e. names):\n%s"), path_noname))
+  }
+
+  # Check if names are unique
+  if (any(duplicated(path_names))) {
+    idx_notuniq <- which(path_names %in% path_names[anyDuplicated(path_names)])
+    path_notuniq <- paste(loom_paths[idx_notuniq], collapse = "\n")
+    stop(sprintf(paste0("The following paths in the 'loom_paths' vector have non-unique ",
+                        "identifiers (i.e. names):\n%s"), path_notuniq))
+  }
+
   # Check if file paths exist
   if (any(file.exists(loom_paths) == FALSE)) {
     non_existing_idx <- which(file.exists(loom_paths) == FALSE)
     stop(sprintf("The following files do not exist:\n%s", paste(loom_paths[non_existing_idx], collapse = "\n")))
   }
 
-  loom_seurat_list <- lapply(loom_paths, function(lpath)
-    LoomAsSeurat(lpath,
+  loom_seurat_list <- lapply(seq_along(loom_paths), function(lp_idx) {
+    lseurat <- LoomAsSeurat(loom_path = loom_paths[lp_idx],
                  matrix_rowname_col = matrix_rowname_col,
                  matrix_colname_col = matrix_colname_col,
                  seurat_assay_name = seurat_assay_name,
@@ -216,11 +239,14 @@ MultiLoomAsSeurat <- function(loom_paths,
                  seurat_names_field = seurat_names_field,
                  seurat_names_delim = seurat_names_delim,
                  ...)
-  )
+    # Add column with loom path name to metadata
+    lseurat$loom <- names(loom_paths)[lp_idx]
+    return(lseurat)
+  })
 
   # Merge seurat objects if neccesary
   if (length(loom_seurat_list) > 1) {
-    merged_seurat <- merge(x = loom_seurat_list[[1]], y = loom_seurat_list[[-1]])
+    merged_seurat <- merge(x = loom_seurat_list[[1]], y = loom_seurat_list[-1])
     return(merged_seurat)
   } else if (length(loom_seurat_list) == 1) {
     return(loom_seurat_list[[1]])
