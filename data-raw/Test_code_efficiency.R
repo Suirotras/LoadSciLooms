@@ -33,13 +33,33 @@ lseurat <- LoomAsSeurat(lpath)
 ### Conclusion: Not really anything to improve. It mostly just uses
 ### LoomAsSeurat, so improvements thare apply here as well.
 devtools::load_all()
-lpaths <- c("i1_ES_infl" = "/Users/jari/Hubrecht_data/projects/Miscellaneous/LoadSciLooms/libraries/i1-TDT3-ES/transcriptome_se_35x_inflated.loom",
-            "i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
+#lpaths <- c("i1_ES_infl" = "/Users/jari/Hubrecht_data/projects/Miscellaneous/LoadSciLooms/libraries/i1-TDT3-ES/transcriptome_se_35x_inflated.loom",
+#            "i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
+#                                  package = "LoadSciLooms"),
+#            "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
+lpaths <- c("i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
                                   package = "LoadSciLooms"),
             "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
                                    package = "LoadSciLooms"))
+lpaths <- c("i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
+                                  package = "LoadSciLooms"))
 
-lseurat <- MultiLoomAsSeurat(lpaths)
 
+lseurat <- MultiLoomAsSeurat(lpaths, gmm_cell_calling = TRUE, gmm_k = 2)
 
+#library(ggplot2)
+#test <- lseurat[[]]
+#ggplot(test, aes(y = nCount_RNA, x = loom)) +
+#  geom_jitter(aes(color = gmm)) +
+#  scale_y_log10()
+
+### Testing for gmm cell calling
+devtools::load_all()
+lpath <- system.file("extdata", "i5_d17_subsample.loom", package = "LoadSciLooms")
+lseurat <- LoomAsSeurat(lpath, gmm_k = 1:5, gmm_verbose = TRUE,
+                        gmm_cell_calling = TRUE)
+
+str(lseurat)
+class(lseurat$seurat)
+class(lseurat$gmm)
 

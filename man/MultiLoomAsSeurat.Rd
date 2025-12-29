@@ -8,6 +8,11 @@ MultiLoomAsSeurat(
   loom_paths,
   matrix_rowname_col = "Gene",
   matrix_colname_col = "CellID",
+  gmm_cell_calling = FALSE,
+  gmm_k = 1:6,
+  gmm_verbose = TRUE,
+  merge_seurat = TRUE,
+  remove_unmerged = TRUE,
   seurat_assay_name = "RNA",
   seurat_min_cells = 0,
   seurat_names_field = 1L,
@@ -30,6 +35,28 @@ the variable (i.e. column) of the column (i.e. cell) metadata in the loom
 file. This variable will subsequently be used as the cell names for the
 generated sparse matrix.}
 
+\item{gmm_cell_calling}{A logical value indicating if a gaussian mixture
+model (gmm) is used to predict which cells are likely real cell. If set to
+TRUE, The 'mclust' R package is used for this purpose. Default is FALSE.}
+
+\item{gmm_k}{An atomic vector of type integer. A gmm is estimated for each
+value of 'gmm_k', where this value represents the number of components in
+the gmm. The cell classifications will be based on the model with the lowest
+BIC. Default 'gmm_k' is '1:6'}
+
+\item{gmm_verbose}{A logical value. For TRUE, will report the BIC and the
+number of components for the chosen gmm. for FALSE, no messages will be
+printed about the chosen model.}
+
+\item{merge_seurat}{A logical value. If TRUE, the individual seuratobjects
+for each loom file will be merged. The merged seuratobject will then be
+added to the returned list.}
+
+\item{remove_unmerged}{A logical value. If TRUE, the individual seuratobjects
+for each loom file will be removed after merging. If FALSE, the individual
+seuratobjects will be kept in the returned list, even after merging.
+This parameter is not used when 'merge_seurat' is set to FALSE.}
+
 \item{seurat_assay_name}{A single element character vector representing the
 name of the assay in the Seuratobject.}
 
@@ -51,12 +78,14 @@ the delimiter used to select the cell name substrings.}
 SeuratObject::CreateSeuratObject() function call.}
 }
 \value{
+A list-like object containing a merged seuratobject and objects
+of type 'lseurat' that were produced by the LoomasSeurat function.
+
 A Seuratobject populated with a sparse matrix representing the
 transcriptome data from the loom files located at 'loom_paths'.
-The 'orig.idents' variable in the cell metadata is used to identify from
-which sample each cell came from in the merged object. This 'orig.idents'
-gets chosen based on the 'seurat_names_field' and 'seurat_names_delim'
-arguments.
+The names registered in the 'loom_paths' variable are used to identify from
+which sample each cell came from in the merged object. This information can
+be found in the 'loom' column of the seurat cell metadata.
 }
 \description{
 Convert multiple loom files to a single merged Seuratobject

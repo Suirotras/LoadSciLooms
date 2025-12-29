@@ -8,6 +8,9 @@ LoomAsSeurat(
   loom_path,
   matrix_rowname_col = "Gene",
   matrix_colname_col = "CellID",
+  gmm_cell_calling = FALSE,
+  gmm_k = 1:6,
+  gmm_verbose = TRUE,
   seurat_assay_name = "RNA",
   seurat_min_cells = 0,
   seurat_names_field = 1L,
@@ -28,6 +31,20 @@ generated sparse matrix.}
 the variable (i.e. column) of the column (i.e. cell) metadata in the loom
 file. This variable will subsequently be used as the cell names for the
 generated sparse matrix.}
+
+\item{gmm_cell_calling}{A logical value indicating if a gaussian mixture
+model (gmm) is used to predict which cells are likely real cell. If set to
+TRUE, The 'mclust' R package is used for this purpose. Default is FALSE.}
+
+\item{gmm_k}{An atomic vector of type integer. A gmm is estimated for each
+value of 'gmm_k', where this value represents the number of components in
+the gmm. The cell classifications will be based on the model with the lowest
+BIC. To prevent testing of multiple components and to select this yourself,
+provide a single integer. Default 'gmm_k' is '1:6'.}
+
+\item{gmm_verbose}{A logical value. For TRUE, will report the BIC and the
+number of components for the chosen gmm. for FALSE, no messages will be
+printed about the chosen model.}
 
 \item{seurat_assay_name}{A single element character vector representing the
 name of the assay in the Seuratobject.}
@@ -50,8 +67,12 @@ the delimiter used to select the cell name substrings.}
 SeuratObject::CreateSeuratObject() function call.}
 }
 \value{
-A Seuratobject populated with a sparse matrix representing the
-transcriptome data from the loom file located at 'loom_path'.
+An object of class 'lseurat'. This class represents a named list
+containing three elements, namely 'seurat', 'params', 'gmm'. 'seurat'
+represents the created seuratobject containing the count data
+(in sparse matrix format) and metadata from the loom file. 'params' is a
+named list storing the parameters given to LoomAsSeurat function. 'gmm' is
+the 'Mclust' object which was used to generate the cell class memberships.
 }
 \description{
 Convert loom file to Seuratobject

@@ -2,3 +2,6 @@
 
 export(LoomAsSeurat)
 export(MultiLoomAsSeurat)
+export(create_lseurat_object)
+export(gmm_cell_caller)
+importFrom(mclust,mclustBIC)
