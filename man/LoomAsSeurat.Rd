@@ -11,6 +11,7 @@ LoomAsSeurat(
   gmm_cell_calling = FALSE,
   gmm_k = 1:6,
   gmm_verbose = TRUE,
+  resolve_duplicates = FALSE,
   seurat_assay_name = "RNA",
   seurat_min_cells = 0,
   seurat_names_field = 1L,
@@ -45,6 +46,13 @@ provide a single integer. Default 'gmm_k' is '1:6'.}
 \item{gmm_verbose}{A logical value. For TRUE, will report the BIC and the
 number of components for the chosen gmm. for FALSE, no messages will be
 printed about the chosen model.}
+
+\item{resolve_duplicates}{A logical value. For TRUE, will resolve duplicate
+features. This becomes relevant for when 'matrix_rowname_col' is set to gene
+symbols, which often results in duplicate gene names. As Seurat objects do
+not allow duplicate feature names, we need to resolve these. To do this, we
+simply only keep the first feature entry found, while removing the other
+duplicate entries. Defaults to 'FALSE'.}
 
 \item{seurat_assay_name}{A single element character vector representing the
 name of the assay in the Seuratobject.}
@@ -84,6 +92,7 @@ lpath <- system.file("extdata", "i1_ES_subsample.loom",
 lseurat <- LoomAsSeurat(lpath,
   matrix_rowname_col = "Gene",
   matrix_colname_col = "CellID",
+  resolve_duplicates = FALSE,
   seurat_assay_name = "RNA",
   seurat_min_cells = 0,
   seurat_names_field = 1L,

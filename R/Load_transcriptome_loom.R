@@ -184,6 +184,12 @@ gmm_cell_caller <- function(counts, k = 1:6,
 #' @param gmm_verbose A logical value. For TRUE, will report the BIC and the
 #'  number of components for the chosen gmm. for FALSE, no messages will be
 #'  printed about the chosen model.
+#' @param resolve_duplicates A logical value. For TRUE, will resolve duplicate
+#'  features. This becomes relevant for when 'matrix_rowname_col' is set to gene
+#'  symbols, which often results in duplicate gene names. As Seurat objects do
+#'  not allow duplicate feature names, we need to resolve these. To do this, we
+#'  simply only keep the first feature entry found, while removing the other
+#'  duplicate entries. Defaults to 'FALSE'.
 #' @param seurat_assay_name A single element character vector representing the
 #'  name of the assay in the Seuratobject.
 #' @param seurat_min_cells Include only features in the seuratobject that are
@@ -216,6 +222,7 @@ gmm_cell_caller <- function(counts, k = 1:6,
 #' lseurat <- LoomAsSeurat(lpath,
 #'   matrix_rowname_col = "Gene",
 #'   matrix_colname_col = "CellID",
+#'   resolve_duplicates = FALSE,
 #'   seurat_assay_name = "RNA",
 #'   seurat_min_cells = 0,
 #'   seurat_names_field = 1L,
@@ -226,6 +233,7 @@ LoomAsSeurat <- function(loom_path,
                          gmm_cell_calling = FALSE,
                          gmm_k = 1:6,
                          gmm_verbose = TRUE,
+                         resolve_duplicates = FALSE,
                          seurat_assay_name = "RNA",
                          seurat_min_cells = 0,
                          seurat_names_field = 1L,
@@ -241,6 +249,10 @@ LoomAsSeurat <- function(loom_path,
   ### Check types
   if (!((is.logical(gmm_cell_calling)) & (length(gmm_cell_calling) == 1))) {
     stop("gmm_cell_calling is not of type logical or is not of length one.")
+  }
+
+  if (!((is.logical(resolve_duplicates)) & (length(resolve_duplicates) == 1))) {
+    stop("resolve_duplicates is not of type logical or is not of length one.")
   }
 
   ### Connect to loom file
@@ -297,13 +309,41 @@ LoomAsSeurat <- function(loom_path,
   rownames(lmatrix_sparse) <- row_meta[[matrix_rowname_col]]
   colnames(lmatrix_sparse) <- col_meta[[matrix_colname_col]]
 
-  ### Create the seurat object
-  lseurat <- SeuratObject::CreateSeuratObject(counts = lmatrix_sparse,
-                                assay = seurat_assay_name,
-                                min.cells = seurat_min_cells,
-                                names.field = seurat_names_field,
-                                names.delim = seurat_names_delim,
-                                ...)
+  ### Create the seurat object, keeping in mind potential duplicate features
+
+  # Create index pointing to duplicate rownames
+  duplicate_index <- (duplicated(rownames(lmatrix_sparse)) == FALSE)
+
+  # Check if there are any duplicates
+  if (any(duplicate_index == FALSE)) {
+    if (resolve_duplicates == FALSE) {
+      stop(sprintf(paste0("The feature column '%s' in '%s' contains duplicate values.\n",
+                          "This column is used to set the feature names in the resulting Seurat object.\n",
+                          "To fix this, either set 'resolve_duplicates = TRUE' to automatically resolve duplicates,\n",
+                          "or provide a different column via the 'matrix_rowname_col' argument so that feature names are unique."),
+                   matrix_rowname_col,
+                   loom_path_val
+      ))
+    } else {
+      # Create seurat subsetted to remove duplicates
+      lseurat <- SeuratObject::CreateSeuratObject(counts = lmatrix_sparse[duplicate_index, ],
+                                                  assay = seurat_assay_name,
+                                                  min.cells = seurat_min_cells,
+                                                  names.field = seurat_names_field,
+                                                  names.delim = seurat_names_delim,
+                                                  ...)
+      # Remove duplicates from row_meta
+      row_meta <- row_meta[duplicate_index, ]
+    }
+  } else {
+    # No duplicates, so create the seurat object without subsetting
+    lseurat <- SeuratObject::CreateSeuratObject(counts = lmatrix_sparse,
+                                                assay = seurat_assay_name,
+                                                min.cells = seurat_min_cells,
+                                                names.field = seurat_names_field,
+                                                names.delim = seurat_names_delim,
+                                                ...)
+  }
 
   ### Add the cell metadata
   lseurat[[matrix_colname_col]] <- rownames(lseurat[[]])
