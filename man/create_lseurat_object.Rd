@@ -39,7 +39,7 @@ and an optional gmm object.
 
 # Create a dummy SeuratObject
 my_seurat <- list()
-class(my_seurat) <- "SeuratObject"
+class(my_seurat) <- "Seurat"
 
 # Create a dummy Mclust object
 my_gmm <- list(bic = -434.9987, components = 2)
@@ -68,7 +68,8 @@ class(lseurat_obj_full)
 class(lseurat_obj_basic)
 
 # You can also check their structure
-str(lseurat_obj_full)
-str(lseurat_obj_basic)
-
+\dontrun{
+  str(lseurat_obj_full)
+  str(lseurat_obj_basic)
+}
 }

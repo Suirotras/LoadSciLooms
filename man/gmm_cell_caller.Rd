@@ -8,7 +8,7 @@ gmm_cell_caller(counts, k = 1:6, log_convert = TRUE, verbose = TRUE)
 }
 \arguments{
 \item{counts}{When 'counts' is an atomic integer vector, the values should
-represent read counts per cell (e.g. cDNA or gDNA counts). A matrix or
+represent total read counts per cell (e.g. cDNA or gDNA counts). A matrix or
 dataframe can also be given, in which case the rows correspond with cells
 and the columns represent separate modalities (e.g. RNA and DamID). Thus,
 cell class membership can be determined based on multiple modalities.}

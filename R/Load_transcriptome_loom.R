@@ -22,7 +22,7 @@
 #'
 #' # Create a dummy SeuratObject
 #' my_seurat <- list()
-#' class(my_seurat) <- "SeuratObject"
+#' class(my_seurat) <- "Seurat"
 #'
 #' # Create a dummy Mclust object
 #' my_gmm <- list(bic = -434.9987, components = 2)
@@ -51,9 +51,10 @@
 #' class(lseurat_obj_basic)
 #'
 #' # You can also check their structure
-#' str(lseurat_obj_full)
-#' str(lseurat_obj_basic)
-#'
+#' \dontrun{
+#'   str(lseurat_obj_full)
+#'   str(lseurat_obj_basic)
+#' }
 create_lseurat_object <- function(seurat_obj, params = list(), gmm = NA,
                                   loom_path = NA, id = NA) {
 
@@ -157,7 +158,7 @@ gmm_cell_caller <- function(counts, k = 1:6,
                     as.character(gmm_model$G)))
     message(sprintf("BIC optimal model: %s", as.character(gmm_model$bic)))
   }
-  return(list(predict(gmm_model)$classification, gmm_model))
+  return(list(mclust::predict.Mclust(gmm_model)$classification, gmm_model))
 }
 
 #' Convert loom file to Seuratobject
@@ -513,7 +514,7 @@ MultiLoomAsSeurat <- function(loom_paths,
     # Remove the individual seurat objects if specified
     if (remove_unmerged) {
       lseurat_obj_list <- lapply(lseurat_obj_list, function(i) {
-        if (class(i) == "lseurat") {
+        if (inherits(i, "lseurat")) {
           i$seurat <- NA
         }
         return(i)
