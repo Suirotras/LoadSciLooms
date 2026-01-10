@@ -1,0 +1,116 @@
+# Convert loom file to Seuratobject
+
+Convert loom file to Seuratobject
+
+## Usage
+
+``` r
+LoomAsSeurat(
+  loom_path,
+  matrix_rowname_col = "Gene",
+  matrix_colname_col = "CellID",
+  gmm_cell_calling = FALSE,
+  gmm_k = 1:6,
+  gmm_verbose = TRUE,
+  seurat_assay_name = "RNA",
+  seurat_min_cells = 0,
+  seurat_names_field = 1L,
+  seurat_names_delim = "_",
+  ...
+)
+```
+
+## Arguments
+
+- loom_path:
+
+  A single-element character vector that indicates the path to the
+  transcriptome loom file.
+
+- matrix_rowname_col:
+
+  A single element character vector that indicates the variable (i.e.
+  column) of the row (i.e. gene) metadata in the loom file. This
+  variable will subsequently be used as the feature names for the
+  generated sparse matrix.
+
+- matrix_colname_col:
+
+  A single element character vector that indicates the variable (i.e.
+  column) of the column (i.e. cell) metadata in the loom file. This
+  variable will subsequently be used as the cell names for the generated
+  sparse matrix.
+
+- gmm_cell_calling:
+
+  A logical value indicating if a gaussian mixture model (gmm) is used
+  to predict which cells are likely real cell. If set to TRUE, The
+  'mclust' R package is used for this purpose. Default is FALSE.
+
+- gmm_k:
+
+  An atomic vector of type integer. A gmm is estimated for each value of
+  'gmm_k', where this value represents the number of components in the
+  gmm. The cell classifications will be based on the model with the
+  lowest BIC. To prevent testing of multiple components and to select
+  this yourself, provide a single integer. Default 'gmm_k' is '1:6'.
+
+- gmm_verbose:
+
+  A logical value. For TRUE, will report the BIC and the number of
+  components for the chosen gmm. for FALSE, no messages will be printed
+  about the chosen model.
+
+- seurat_assay_name:
+
+  A single element character vector representing the name of the assay
+  in the Seuratobject.
+
+- seurat_min_cells:
+
+  Include only features in the seuratobject that are detected in at
+  least this many cells.
+
+- seurat_names_field:
+
+  Argument used to get sample name from the cell names. Works in
+  conjunction with the 'seurat_names_delim' argument.
+  'seurat_names_field' is an integer selecting which substring (i.e.
+  delimited by 'seurat_names_delim') should be selected as the sample
+  name. The default is 1L (i.e. the first field of the cell name).
+
+- seurat_names_delim:
+
+  Argument used to get sample name from the cell names. Works in
+  conjunction with the 'seurat_names_field' argument.
+  'seurat_names_delim' is a single element character vector that
+  represents the delimiter used to select the cell name substrings.
+
+- ...:
+
+  Additional arguments will be given to the
+  SeuratObject::CreateSeuratObject() function call.
+
+## Value
+
+An object of class 'lseurat'. This class represents a named list
+containing three elements, namely 'seurat', 'params', 'gmm'. 'seurat'
+represents the created seuratobject containing the count data (in sparse
+matrix format) and metadata from the loom file. 'params' is a named list
+storing the parameters given to LoomAsSeurat function. 'gmm' is the
+'Mclust' object which was used to generate the cell class memberships.
+
+## Examples
+
+``` r
+lpath <- system.file("extdata", "i1_ES_subsample.loom",
+                      package = "LoadSciLooms")
+
+lseurat <- LoomAsSeurat(lpath,
+  matrix_rowname_col = "Gene",
+  matrix_colname_col = "CellID",
+  seurat_assay_name = "RNA",
+  seurat_min_cells = 0,
+  seurat_names_field = 1L,
+  seurat_names_delim = "_")
+```

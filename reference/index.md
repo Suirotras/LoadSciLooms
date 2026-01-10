@@ -1,0 +1,12 @@
+# Package index
+
+## All functions
+
+- [`LoomAsSeurat()`](https://suirotras.github.io/LoadSciLooms/reference/LoomAsSeurat.md)
+  : Convert loom file to Seuratobject
+- [`MultiLoomAsSeurat()`](https://suirotras.github.io/LoadSciLooms/reference/MultiLoomAsSeurat.md)
+  : Convert multiple loom files to a single merged Seuratobject
+- [`create_lseurat_object()`](https://suirotras.github.io/LoadSciLooms/reference/create_lseurat_object.md)
+  : Create a custom "lseurat" object.
+- [`gmm_cell_caller()`](https://suirotras.github.io/LoadSciLooms/reference/gmm_cell_caller.md)
+  : Function for calling cells using gaussian mixture models
