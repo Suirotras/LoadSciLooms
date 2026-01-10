@@ -1,9 +1,9 @@
 Package: LoadSciLooms
-Title: Easy loading of sciDam&T and scDam&T loom files
+Title: Easy loading of sciT loom files
 Version: 0.0.0.9000
 Authors@R: 
     person("Jari", "van Diermen", , "j.diermen@hubrecht.eu", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Description: Easy loading of sciT loom files that are generated from the sciT_snakemake workflow (https://github.com/Suirotras/SciT_snakemake)
 License: MIT + file LICENSE
 Imports: 
     Matrix,
