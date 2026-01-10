@@ -44,6 +44,7 @@
 <span>  gmm_cell_calling <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  gmm_k <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span>,</span>
 <span>  gmm_verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  resolve_duplicates <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  seurat_assay_name <span class="op">=</span> <span class="st">"RNA"</span>,</span>
 <span>  seurat_min_cells <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  seurat_names_field <span class="op">=</span> <span class="fl">1L</span>,</span>
@@ -95,6 +96,15 @@ number of components for the chosen gmm. for FALSE, no messages will be
 printed about the chosen model.</p></dd>
 
 
+<dt id="arg-resolve-duplicates">resolve_duplicates<a class="anchor" aria-label="anchor" href="#arg-resolve-duplicates"></a></dt>
+<dd><p>A logical value. For TRUE, will resolve duplicate
+features. This becomes relevant for when 'matrix_rowname_col' is set to gene
+symbols, which often results in duplicate gene names. As Seurat objects do
+not allow duplicate feature names, we need to resolve these. To do this, we
+simply only keep the first feature entry found, while removing the other
+duplicate entries. Defaults to 'FALSE'.</p></dd>
+
+
 <dt id="arg-seurat-assay-name">seurat_assay_name<a class="anchor" aria-label="anchor" href="#arg-seurat-assay-name"></a></dt>
 <dd><p>A single element character vector representing the
 name of the assay in the Seuratobject.</p></dd>
@@ -143,6 +153,7 @@ the 'Mclust' object which was used to generate the cell class memberships.</p>
 <span class="r-in"><span><span class="va">lseurat</span> <span class="op">&lt;-</span> <span class="fu">LoomAsSeurat</span><span class="op">(</span><span class="va">lpath</span>,</span></span>
 <span class="r-in"><span>  matrix_rowname_col <span class="op">=</span> <span class="st">"Gene"</span>,</span></span>
 <span class="r-in"><span>  matrix_colname_col <span class="op">=</span> <span class="st">"CellID"</span>,</span></span>
+<span class="r-in"><span>  resolve_duplicates <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
 <span class="r-in"><span>  seurat_assay_name <span class="op">=</span> <span class="st">"RNA"</span>,</span></span>
 <span class="r-in"><span>  seurat_min_cells <span class="op">=</span> <span class="fl">0</span>,</span></span>
 <span class="r-in"><span>  seurat_names_field <span class="op">=</span> <span class="fl">1L</span>,</span></span>
