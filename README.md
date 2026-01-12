@@ -15,6 +15,7 @@ single-cell combinatorial indexing transcriptomics (**sciT**) data
 - Load sciT-generated **`.loom` files** into R
 - Convert them into **Seurat objects**
 - Optionally perform **Gaussian Mixture Model (GMM)**–based cell calling
+- Optionally use the **Odd-barcodes** to add metadata to the Seurat objects
 - Merge multiple sciT libraries while preserving provenance and metadata
 - Keep analysis parameters and model objects bundled with the data
 
@@ -30,7 +31,7 @@ In short:
 |---------------|-------------|
 | Snakemake pipeline | R package |
 | FASTQ → BAM → counts | `.loom` → Seurat |
-| Alignment, QC, counting | Loading, filtering, merging |
+| Alignment, QC, counting | Loading, filtering, merging, Adding Odd-barcode metadata |
 | Produces `.loom` files | Consumes `.loom` files |
 
 
@@ -47,7 +48,7 @@ Transcriptome .loom files
 ↓
 LoadSciLooms (this package)
 ↓
-Seurat objects
+Seurat objects (optionally with Gmm cell-calls and/or Odd-barcode derived metadata)
 ↓
 Downstream analysis (clustering, annotation, visualization)
 ```
@@ -123,6 +124,32 @@ Results:
 - Cell classifications stored in `lseurat$seurat$gmm`
 - Fitted model stored in `lseurat$gmm`
 
+## Optional: Odd-barcode mediated metadata annotation
+
+SciT-datasets often combine multiple treatments or conditions. Using the Odd-barcodes of the cells, we can annotate this metadata when loading the Seurat objects.
+
+Below is an example:
+
+```R
+loom_file <- system.file("extdata", "i31_GSK126_subsample.loom",
+  package = "LoadSciLooms")
+odd_md_file <- system.file("extdata", "Odd_barcode_md.csv",
+  package = "LoadSciLooms")
+
+lseurat_odd <- LoomAsSeurat(
+  loom_path = loom_file,
+  matrix_rowname_col = "Gene",
+  matrix_colname_col = "CellID",
+  resolve_duplicates = FALSE,
+  Add_Odd_bc_md = TRUE,
+  Odd_barcode_md_file = odd_md_file,
+  full_barcode_col = "BC"
+)
+
+# Resulting Seurat metadata will contain Odd-barcode metadata
+head(lseurat_odd$seurat[[c("Odd_barcode", "condition")]])
+```
+
 ## Loading and merging multiple sciT libraries
 
 For experiments processed as multiple sciT libraries:
@@ -172,6 +199,7 @@ Use **LoadSciLooms** if:
 
 - You ran **SciT_snakemake**
 - You have transcriptome `.loom` files.
+- You want to annotate the SciT-data with Odd-barcode derived metadata.
 - You want to analyze data in Seurat.
 
 ## Related repository

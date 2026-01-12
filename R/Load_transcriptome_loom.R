@@ -161,72 +161,253 @@ gmm_cell_caller <- function(counts, k = 1:6,
   return(list(mclust::predict.Mclust(gmm_model)$classification, gmm_model))
 }
 
-#' Convert loom file to Seuratobject
+#' Add Odd-barcode–derived metadata to a Seurat object
 #'
-#' @param loom_path A single-element character vector that indicates the path
-#'  to the transcriptome loom file.
-#' @param matrix_rowname_col A single element character vector that indicates
-#'  the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
-#'  This variable will subsequently be used as the feature names for the
-#'  generated sparse matrix.
-#' @param matrix_colname_col A single element character vector that indicates
-#'  the variable (i.e. column) of the column (i.e. cell) metadata in the loom
-#'  file. This variable will subsequently be used as the cell names for the
-#'  generated sparse matrix.
-#' @param gmm_cell_calling A logical value indicating if a gaussian mixture
-#'  model (gmm) is used to predict which cells are likely real cell. If set to
-#'  TRUE, The 'mclust' R package is used for this purpose. Default is FALSE.
-#' @param gmm_k An atomic vector of type integer. A gmm is estimated for each
-#'  value of 'gmm_k', where this value represents the number of components in
-#'  the gmm. The cell classifications will be based on the model with the lowest
-#'  BIC. To prevent testing of multiple components and to select this yourself,
-#'  provide a single integer. Default 'gmm_k' is '1:6'.
-#' @param gmm_verbose A logical value. For TRUE, will report the BIC and the
-#'  number of components for the chosen gmm. for FALSE, no messages will be
-#'  printed about the chosen model.
-#' @param resolve_duplicates A logical value. For TRUE, will resolve duplicate
-#'  features. This becomes relevant for when 'matrix_rowname_col' is set to gene
-#'  symbols, which often results in duplicate gene names. As Seurat objects do
-#'  not allow duplicate feature names, we need to resolve these. To do this, we
-#'  simply only keep the first feature entry found, while removing the other
-#'  duplicate entries. Defaults to 'FALSE'.
-#' @param seurat_assay_name A single element character vector representing the
-#'  name of the assay in the Seuratobject.
-#' @param seurat_min_cells Include only features in the seuratobject that are
-#'  detected in at least this many cells.
-#' @param seurat_names_field Argument used to get sample name from the cell
-#'  names. Works in conjunction with the 'seurat_names_delim' argument.
-#'   'seurat_names_field' is an integer selecting which substring
-#'   (i.e. delimited by 'seurat_names_delim') should be selected as the sample
-#'   name. The default is 1L (i.e. the first field of the cell name).
-#' @param seurat_names_delim Argument used to get sample name from the cell
-#'  names. Works in conjunction with the 'seurat_names_field' argument.
-#'  'seurat_names_delim' is a single element character vector that represents
-#'  the delimiter used to select the cell name substrings.
-#' @param ... Additional arguments will be given to the
-#'  SeuratObject::CreateSeuratObject() function call.
+#' sciT datasets often consist of cells from different treatment conditions.
+#' Using Odd barcodes embedded in the full cell barcode, cells can be stratified
+#' by treatment or condition. This function extracts the Odd barcode from the
+#' full barcode stored in the Seurat metadata, matches it to a user-provided
+#' metadata table, and adds both the Odd barcode and the corresponding condition
+#' as new metadata columns to the Seurat object contained within an \code{lseurat}
+#' object.
 #'
-#' @returns An object of class 'lseurat'. This class represents a named list
-#'  containing three elements, namely 'seurat', 'params', 'gmm'. 'seurat'
-#'  represents the created seuratobject containing the count data
-#'  (in sparse matrix format) and metadata from the loom file. 'params' is a
-#'  named list storing the parameters given to LoomAsSeurat function. 'gmm' is
-#'  the 'Mclust' object which was used to generate the cell class memberships.
+#' @param lseurat An object of class \code{lseurat} containing a Seurat object in
+#'   \code{lseurat$seurat}.
+#' @param Odd_barcode_md_file A comma-separated file linking Odd barcode IDs to
+#'   metadata (e.g. treatment or condition). Must contain at least two columns:
+#'   one with Odd barcode identifiers and one with the corresponding condition.
+#' @param full_barcode_col Character string specifying the column name in the
+#'   Seurat metadata that contains the full cell barcode.
+#'   Defaults to \code{"BC"}.
+#' @param condition_col Character string specifying the name of the metadata
+#'   column to store the condition labels in the Seurat object.
+#'   Defaults to \code{"condition"}.
+#' @param Odd_barcode_col Character string specifying the name of the metadata
+#'   column to store the extracted Odd barcodes in the Seurat object.
+#'   Defaults to \code{"Odd_barcode"}.
+#' @param Odd_barcode_position Integer specifying the position of the Odd barcode
+#'   after splitting the full barcode on underscores (\code{"_"}).
+#'   Defaults to \code{2}.
+#'
+#' @details
+#' The full barcode is split using underscores, and the element at
+#' \code{Odd_barcode_position} is interpreted as the Odd barcode. These Odd
+#' barcodes are then matched to the metadata file using exact matching.
+#'
+#' @returns
+#' The input \code{lseurat} object with updated Seurat metadata. Two new columns
+#' are added to \code{lseurat$seurat@meta.data}: one containing the extracted Odd
+#' barcodes and one containing the corresponding condition labels.
+#'
+#' @export
+Add_odd_barcode_metadata <- function(lseurat,
+                                     Odd_barcode_md_file,
+                                     full_barcode_col = "BC",
+                                     condition_col = "condition",
+                                     Odd_barcode_col = "Odd_barcode",
+                                     Odd_barcode_position = 2) {
+
+  # Input checks
+
+  if (!is.list(lseurat) || is.null(lseurat$seurat)) {
+    stop("'lseurat' must be an object containing a Seurat object in lseurat$seurat.")
+  }
+
+  if (!inherits(lseurat$seurat, "Seurat")) {
+    stop("lseurat$seurat must be a valid Seurat object.")
+  }
+
+  if (!is.character(Odd_barcode_md_file) || length(Odd_barcode_md_file) != 1) {
+    stop("'Odd_barcode_md_file' must be a single character string.")
+  }
+
+  if (!file.exists(Odd_barcode_md_file)) {
+    stop("Odd barcode metadata file does not exist: ", Odd_barcode_md_file)
+  }
+
+  if (!is.numeric(Odd_barcode_position) || length(Odd_barcode_position) != 1 ||
+      Odd_barcode_position < 1) {
+    stop("'Odd_barcode_position' must be a single positive integer.")
+  }
+
+  # Load data
+
+  Odd_barcode_md <- utils::read.csv(Odd_barcode_md_file)
+
+  required_cols <- c("Odd_barcode", "Condition")
+  missing_cols <- setdiff(required_cols, colnames(Odd_barcode_md))
+
+  if (length(missing_cols) > 0) {
+    stop(
+      "Odd barcode metadata file is missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  seurat_md <- lseurat$seurat@meta.data
+
+  if (!full_barcode_col %in% colnames(seurat_md)) {
+    stop("Column '", full_barcode_col, "' not found in Seurat metadata.")
+  }
+
+  # Extract Odd barcodes
+
+  Odd_bcs <- sapply(
+    strsplit(seurat_md[[full_barcode_col]], split = "_"),
+    "[",
+    Odd_barcode_position
+  )
+
+  # Map to condition
+
+  condition <- Odd_barcode_md$Condition[
+    match(Odd_bcs, Odd_barcode_md$Odd_barcode)
+  ]
+
+  # Warn if some cells could not be matched to a condition
+  if (any(is.na(condition))) {
+    warning(sum(is.na(condition)), " cells could not be matched to a condition.")
+  }
+
+  # Add metadata
+
+  seurat_md[[Odd_barcode_col]] <- Odd_bcs
+  seurat_md[[condition_col]] <- condition
+
+  lseurat$seurat@meta.data <- seurat_md
+
+  return(lseurat)
+}
+
+#' Convert a loom file to a Seurat object
+#'
+#' This function loads a transcriptome loom file and converts it into a
+#' Seurat object wrapped inside an \code{lseurat} container. It supports
+#' optional Gaussian mixture model (GMM)–based cell calling, automatic
+#' resolution of duplicate feature names, and annotation of cells using
+#' Odd-barcode–linked metadata.
+#'
+#' @section Loom file input:
+#' Arguments: \code{loom_path}, \code{matrix_rowname_col},
+#' \code{matrix_colname_col}.
+#'
+#' Control how the loom file is read and how features and cells are identified.
+#'
+#' @param loom_path A single-element character vector specifying the path to
+#'   the transcriptome loom file.
+#' @param matrix_rowname_col A single-element character vector indicating the
+#'   column in the row (gene) metadata of the loom file that should be used as
+#'   feature names for the count matrix.
+#' @param matrix_colname_col A single-element character vector indicating the
+#'   column in the column (cell) metadata of the loom file that should be used
+#'   as cell names for the count matrix.
+#'
+#' @section Seurat object construction:
+#' Arguments: \code{seurat_assay_name}, \code{seurat_min_cells},
+#' \code{seurat_names_field}, \code{seurat_names_delim}, \code{...}.
+#'
+#' Control creation, filtering, and naming of the Seurat object.
+#'
+#' @param seurat_assay_name A single-element character vector specifying the
+#'   name of the assay in the created Seurat object.
+#' @param seurat_min_cells Include only features detected in at least this many
+#'   cells.
+#' @param seurat_names_field Integer specifying which substring of the cell
+#'   name (after splitting by \code{seurat_names_delim}) is used as the sample
+#'   name.
+#' @param seurat_names_delim A single-element character vector specifying the
+#'   delimiter used to split cell names when extracting sample names.
+#' @param ... Additional arguments passed to
+#'   \code{SeuratObject::CreateSeuratObject()}.
+#'
+#' @section Duplicate feature handling:
+#' Arguments: \code{resolve_duplicates}.
+#'
+#' Control how duplicate feature names are detected and resolved.
+#'
+#' @param resolve_duplicates Logical value indicating whether duplicate
+#'   feature names should be resolved automatically. If \code{TRUE}, only the
+#'   first occurrence of each duplicated feature is retained. If \code{FALSE},
+#'   the function errors when duplicates are detected. Default is \code{FALSE}.
+#'
+#' @section GMM-based cell calling:
+#' Arguments: \code{gmm_cell_calling}, \code{gmm_k}, \code{gmm_verbose}.
+#'
+#' Control Gaussian mixture model–based classification of cells.
+#'
+#' @param gmm_cell_calling Logical value indicating whether GMM-based cell
+#'   calling should be performed. Default is \code{FALSE}.
+#' @param gmm_k Integer vector specifying the number(s) of mixture components
+#'   to test. The model with the lowest BIC is selected. Default is \code{1:6}.
+#' @param gmm_verbose Logical value indicating whether information about the
+#'   selected GMM (BIC and number of components) should be printed.
+#'
+#' @section Odd-barcode metadata annotation:
+#' Arguments: \code{Add_Odd_bc_md}, \code{Odd_barcode_md_file},
+#' \code{full_barcode_col}, \code{condition_col},
+#' \code{Odd_barcode_col}, \code{Odd_barcode_position}.
+#'
+#' Control annotation of cells using Odd-barcode–linked metadata.
+#'
+#' @param Add_Odd_bc_md Logical value indicating whether Odd-barcode metadata
+#'   annotation should be performed. Default is \code{FALSE}.
+#' @param Odd_barcode_md_file A comma-separated file linking Odd barcode IDs to
+#'   metadata (e.g. treatment or condition). Must contain at least two columns:
+#'   one with Odd barcode identifiers and one with the corresponding condition.
+#' @param full_barcode_col Character string specifying the column in the Seurat
+#'   metadata that contains the full cell barcode.
+#' @param condition_col Character string specifying the name of the metadata
+#'   column in which to store condition labels.
+#' @param Odd_barcode_col Character string specifying the name of the metadata
+#'   column in which to store extracted Odd barcodes.
+#' @param Odd_barcode_position Integer specifying the position of the Odd
+#'   barcode after splitting the full barcode on underscores (\code{"_"}).
+#'
+#' @returns
+#' An object of class \code{lseurat}. This is a named list containing:
+#' \describe{
+#'   \item{seurat}{A Seurat object containing the count matrix and metadata
+#'   derived from the loom file.}
+#'   \item{params}{A named list of parameters supplied to
+#'   \code{LoomAsSeurat()}.}
+#'   \item{gmm}{The \code{Mclust} object used for cell calling, or \code{NA} if
+#'   GMM-based cell calling was not performed.}
+#' }
 #'
 #' @export
 #'
 #' @examples
+#' # Example 1: basic loom loading
 #' lpath <- system.file("extdata", "i1_ES_subsample.loom",
-#'                       package = "LoadSciLooms")
-#'
-#' lseurat <- LoomAsSeurat(lpath,
+#'   package = "LoadSciLooms")
+#' lseurat <- LoomAsSeurat(
+#'   lpath,
 #'   matrix_rowname_col = "Gene",
 #'   matrix_colname_col = "CellID",
 #'   resolve_duplicates = FALSE,
 #'   seurat_assay_name = "RNA",
 #'   seurat_min_cells = 0,
 #'   seurat_names_field = 1L,
-#'   seurat_names_delim = "_")
+#'   seurat_names_delim = "_"
+#' )
+#'
+#' # Example 2: loom loading with Odd-barcode metadata annotation
+#' loom_file <- system.file("extdata", "i31_GSK126_subsample.loom",
+#'   package = "LoadSciLooms")
+#' odd_md_file <- system.file("extdata", "Odd_barcode_md.csv",
+#'   package = "LoadSciLooms")
+#' lseurat_odd <- LoomAsSeurat(
+#'   loom_path = loom_file,
+#'   matrix_rowname_col = "Gene",
+#'   matrix_colname_col = "CellID",
+#'   resolve_duplicates = FALSE,
+#'   Add_Odd_bc_md = TRUE,
+#'   Odd_barcode_md_file = odd_md_file,
+#'   full_barcode_col = "BC"
+#' )
+#'
+#' # Resulting Seurat metadata will contain Odd-barcode metadata
+#' head(lseurat_odd$seurat[[c("Odd_barcode", "condition")]])
 LoomAsSeurat <- function(loom_path,
                          matrix_rowname_col = "Gene",
                          matrix_colname_col = "CellID",
@@ -234,6 +415,12 @@ LoomAsSeurat <- function(loom_path,
                          gmm_k = 1:6,
                          gmm_verbose = TRUE,
                          resolve_duplicates = FALSE,
+                         Add_Odd_bc_md = FALSE,
+                         Odd_barcode_md_file = NULL,
+                         full_barcode_col = "BC",
+                         condition_col = "condition",
+                         Odd_barcode_col = "Odd_barcode",
+                         Odd_barcode_position = 2,
                          seurat_assay_name = "RNA",
                          seurat_min_cells = 0,
                          seurat_names_field = 1L,
@@ -253,6 +440,10 @@ LoomAsSeurat <- function(loom_path,
 
   if (!((is.logical(resolve_duplicates)) & (length(resolve_duplicates) == 1))) {
     stop("resolve_duplicates is not of type logical or is not of length one.")
+  }
+
+  if (!((is.logical(Add_Odd_bc_md)) & (length(Add_Odd_bc_md) == 1))) {
+    stop("Add_Odd_bc_md is not of type logical or is not of length one.")
   }
 
   ### Connect to loom file
@@ -368,87 +559,182 @@ LoomAsSeurat <- function(loom_path,
     lseurat$gmm <- gmm_calls[[1]]
 
     # Create lseurat object with gmm object
-    return(create_lseurat_object(lseurat, all_args, gmm_calls[[2]]))
+    lseurat <- create_lseurat_object(lseurat, all_args, gmm_calls[[2]])
   } else {
     # Create lseurat object without gmm object
-    return(create_lseurat_object(lseurat, all_args, NA))
+    lseurat <- create_lseurat_object(lseurat, all_args, NA)
   }
+
+  ### Perform Odd-barcode linked metadata annotation
+  if (Add_Odd_bc_md) {
+    lseurat <- Add_odd_barcode_metadata(lseurat = lseurat,
+                                        Odd_barcode_md_file = Odd_barcode_md_file,
+                                        full_barcode_col = full_barcode_col,
+                                        condition_col = condition_col,
+                                        Odd_barcode_col = Odd_barcode_col,
+                                        Odd_barcode_position = Odd_barcode_position)
+  }
+  return(lseurat)
 }
 
-#' Convert multiple loom files to a single merged Seuratobject
+#' Convert multiple loom files to a merged Seurat object
 #'
-#' @param loom_paths A named character vector that indicates the paths to the
-#'  transcriptome loom files. The Name attribute will be used to indicate which
-#'  cell came from which loom file.
-#' @param matrix_rowname_col A single element character vector that indicates
-#'  the variable (i.e. column) of the row (i.e. gene) metadata in the loom file.
-#'  This variable will subsequently be used as the feature names for the
-#'  generated sparse matrix.
-#' @param matrix_colname_col A single element character vector that indicates
-#'  the variable (i.e. column) of the column (i.e. cell) metadata in the loom
-#'  file. This variable will subsequently be used as the cell names for the
-#'  generated sparse matrix.
-#' @param gmm_cell_calling A logical value indicating if a gaussian mixture
-#'  model (gmm) is used to predict which cells are likely real cell. If set to
-#'  TRUE, The 'mclust' R package is used for this purpose. Default is FALSE.
-#' @param gmm_k An atomic vector of type integer. A gmm is estimated for each
-#'  value of 'gmm_k', where this value represents the number of components in
-#'  the gmm. The cell classifications will be based on the model with the lowest
-#'  BIC. Default 'gmm_k' is '1:6'
-#' @param gmm_verbose A logical value. For TRUE, will report the BIC and the
-#'  number of components for the chosen gmm. for FALSE, no messages will be
-#'  printed about the chosen model.
-#' @param merge_seurat A logical value. If TRUE, the individual seuratobjects
-#'  for each loom file will be merged. The merged seuratobject will then be
-#'  added to the returned list.
-#' @param remove_unmerged A logical value. If TRUE, the individual seuratobjects
-#'  for each loom file will be removed after merging. If FALSE, the individual
-#'  seuratobjects will be kept in the returned list, even after merging.
-#'  This parameter is not used when 'merge_seurat' is set to FALSE.
-#' @param seurat_assay_name A single element character vector representing the
-#'  name of the assay in the Seuratobject.
-#' @param seurat_min_cells Include only features in the seuratobject that are
-#'  detected in at least this many cells.
-#' @param seurat_names_field Argument used to get sample name from the cell
-#'  names. Works in conjunction with the 'seurat_names_delim' argument.
-#'   'seurat_names_field' is an integer selecting which substring
-#'   (i.e. delimited by 'seurat_names_delim') should be selected as the sample
-#'   name. The default is 1L (i.e. the first field of the cell name).
-#' @param seurat_names_delim Argument used to get sample name from the cell
-#'  names. Works in conjunction with the 'seurat_names_field' argument.
-#'  'seurat_names_delim' is a single element character vector that represents
-#'  the delimiter used to select the cell name substrings.
-#' @param ... Additional arguments will be given to the
-#'  SeuratObject::CreateSeuratObject() function call.
+#' This function converts multiple transcriptome loom files into individual
+#' Seurat objects using \code{\link{LoomAsSeurat}} and optionally merges them
+#' into a single Seurat object. Each loom file is tracked by a user-supplied
+#' identifier, which is stored in the cell-level metadata of the resulting
+#' Seurat object(s).
 #'
-#' @returns A list-like object containing a merged seuratobject and objects
-#'  of type 'lseurat' that were produced by the LoomasSeurat function.
+#' @section Loom file input:
+#' Arguments: \code{loom_paths}, \code{matrix_rowname_col},
+#' \code{matrix_colname_col}.
 #'
-#' A Seuratobject populated with a sparse matrix representing the
-#'  transcriptome data from the loom files located at 'loom_paths'.
-#'  The names registered in the 'loom_paths' variable are used to identify from
-#'  which sample each cell came from in the merged object. This information can
-#'  be found in the 'loom' column of the seurat cell metadata.
+#' Control how multiple loom files are specified and how features and cells
+#' are identified.
+#'
+#' @param loom_paths A named character vector specifying paths to transcriptome
+#'   loom files. The names are used as sample identifiers and will be stored in
+#'   the cell metadata (column \code{loom}) of the resulting Seurat object(s).
+#' @param matrix_rowname_col A single-element character vector indicating the
+#'   column in the row (gene) metadata of the loom files that should be used as
+#'   feature names for the count matrix.
+#' @param matrix_colname_col A single-element character vector indicating the
+#'   column in the column (cell) metadata of the loom files that should be used
+#'   as cell names for the count matrix.
+#'
+#' @section Seurat object construction:
+#' Arguments: \code{seurat_assay_name}, \code{seurat_min_cells},
+#' \code{seurat_names_field}, \code{seurat_names_delim}, \code{...}.
+#'
+#' Control creation, filtering, and naming of Seurat objects derived from each
+#' loom file.
+#'
+#' @param seurat_assay_name A single-element character vector specifying the
+#'   name of the assay in the created Seurat object(s).
+#' @param seurat_min_cells Include only features detected in at least this many
+#'   cells.
+#' @param seurat_names_field Integer specifying which substring of the cell
+#'   name (after splitting by \code{seurat_names_delim}) is used as the sample
+#'   name.
+#' @param seurat_names_delim A single-element character vector specifying the
+#'   delimiter used to split cell names when extracting sample names.
+#' @param ... Additional arguments passed to
+#'   \code{SeuratObject::CreateSeuratObject()}.
+#'
+#' @section Duplicate feature handling:
+#' Arguments: \code{resolve_duplicates}.
+#'
+#' Control how duplicate feature names are detected and resolved.
+#'
+#' @param resolve_duplicates Logical value indicating whether duplicate
+#'   feature names should be resolved automatically. If \code{TRUE}, only the
+#'   first occurrence of each duplicated feature is retained. If \code{FALSE},
+#'   the function errors when duplicates are detected. Default is \code{FALSE}.
+#'
+#' @section GMM-based cell calling:
+#' Arguments: \code{gmm_cell_calling}, \code{gmm_k}, \code{gmm_verbose}.
+#'
+#' Control Gaussian mixture model–based classification of cells for each loom
+#' file.
+#'
+#' @param gmm_cell_calling Logical value indicating whether GMM-based cell
+#'   calling should be performed for each loom file. Default is \code{FALSE}.
+#' @param gmm_k Integer vector specifying the number(s) of mixture components
+#'   to test. The model with the lowest BIC is selected. Default is \code{1:6}.
+#' @param gmm_verbose Logical value indicating whether information about the
+#'   selected GMM (BIC and number of components) should be printed.
+#'
+#' @section Odd-barcode metadata annotation:
+#' Arguments: \code{Add_Odd_bc_md}, \code{Odd_barcode_md_file},
+#' \code{full_barcode_col}, \code{condition_col},
+#' \code{Odd_barcode_col}, \code{Odd_barcode_position}.
+#'
+#' Control annotation of cells using Odd-barcode–linked metadata.
+#'
+#' @param Add_Odd_bc_md Logical value indicating whether Odd-barcode metadata
+#'   annotation should be performed. Default is \code{FALSE}.
+#' @param Odd_barcode_md_file A comma-separated file linking Odd barcode IDs to
+#'   metadata (e.g. treatment or condition). Must contain at least two columns:
+#'   one with Odd barcode identifiers and one with the corresponding condition.
+#' @param full_barcode_col Character string specifying the column in the Seurat
+#'   metadata that contains the full cell barcode.
+#' @param condition_col Character string specifying the name of the metadata
+#'   column in which to store condition labels.
+#' @param Odd_barcode_col Character string specifying the name of the metadata
+#'   column in which to store extracted Odd barcodes.
+#' @param Odd_barcode_position Integer specifying the position of the Odd
+#'   barcode after splitting the full barcode on underscores (\code{"_"}).
+#'
+#' @section Merging behavior:
+#' Arguments: \code{merge_seurat}, \code{remove_unmerged}.
+#'
+#' Control whether individual Seurat objects are merged and whether unmerged
+#' objects are retained.
+#'
+#' @param merge_seurat Logical value indicating whether individual Seurat
+#'   objects should be merged into a single Seurat object.
+#' @param remove_unmerged Logical value indicating whether the individual
+#'   Seurat objects should be removed after merging. This argument is ignored
+#'   if \code{merge_seurat = FALSE}.
+#'
+#' @returns
+#' A named list containing:
+#' \describe{
+#'   \item{merged_seurat}{A merged Seurat object if
+#'   \code{merge_seurat = TRUE}, otherwise \code{NA}.}
+#'   \item{<sample_id>}{One element per loom file, each an object of class
+#'   \code{lseurat} containing the Seurat object, parameters, and optional GMM
+#'   results.}
+#' }
+#'
+#' @seealso
+#' \code{\link{LoomAsSeurat}}, \code{\link{Add_odd_barcode_metadata}}
 #'
 #' @export
 #'
 #' @examples
-#' # Get named vector of loom file paths
-#' lpaths <- c("i1_ES" = system.file("extdata", "i1_ES_subsample.loom",
-#'                                    package = "LoadSciLooms"),
-#'             "i3_d6" = system.file("extdata", "i3_d6_subsample.loom",
-#'                                    package = "LoadSciLooms"),
-#'             "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
-#'                                     package = "LoadSciLooms"))
-#'
-#' # Load loom files as seurat
-#' lseurat <- MultiLoomAsSeurat(lpaths,
+#' ## Example 1: Regular loading and merging of multiple loom files
+#' lpaths <- c(
+#'   "i1_ES"  = system.file("extdata", "i1_ES_subsample.loom",
+#'                          package = "LoadSciLooms"),
+#'   "i3_d6"  = system.file("extdata", "i3_d6_subsample.loom",
+#'                          package = "LoadSciLooms"),
+#'   "i5_d17" = system.file("extdata", "i5_d17_subsample.loom",
+#'                          package = "LoadSciLooms")
+#' )
+#' lseurat_list <- MultiLoomAsSeurat(
+#'   lpaths,
 #'   matrix_rowname_col = "Gene",
 #'   matrix_colname_col = "CellID",
 #'   seurat_assay_name = "RNA",
 #'   seurat_min_cells = 0,
 #'   seurat_names_field = 1L,
-#'   seurat_names_delim = "_")
+#'   seurat_names_delim = "_"
+#' )
+#'
+#' ## Example 2: loom loading with Odd-barcode metadata annotation
+#' lpaths <- c(
+#'   "dummy_sample1" = system.file("extdata", "i31_GSK126_subsample.loom",
+#'                                 package = "LoadSciLooms"),
+#'   "dummy_sample2" = system.file("extdata", "i31_GSK126_subsample.loom",
+#'                                 package = "LoadSciLooms"),
+#'   "dummy_sample3" = system.file("extdata", "i31_GSK126_subsample.loom",
+#'                                 package = "LoadSciLooms")
+#' )
+#' odd_md_file <- system.file("extdata", "Odd_barcode_md.csv",
+#'   package = "LoadSciLooms")
+#' lseurat_list_odd <- MultiLoomAsSeurat(
+#'   lpaths,
+#'   matrix_rowname_col = "Gene",
+#'   matrix_colname_col = "CellID",
+#'   Add_Odd_bc_md = TRUE,
+#'   Odd_barcode_md_file = odd_md_file,
+#'   remove_unmerged = TRUE,
+#'   full_barcode_col = "BC"
+#'   )
+#'
+#' # Resulting merged-Seurat metadata will contain Odd-barcode metadata
+#' head(lseurat_list_odd$merged_seurat[[c("Odd_barcode", "condition")]])
 MultiLoomAsSeurat <- function(loom_paths,
                               matrix_rowname_col = "Gene",
                               matrix_colname_col = "CellID",
@@ -457,6 +743,13 @@ MultiLoomAsSeurat <- function(loom_paths,
                               gmm_verbose = TRUE,
                               merge_seurat = TRUE,
                               remove_unmerged = TRUE,
+                              resolve_duplicates = FALSE,
+                              Add_Odd_bc_md = FALSE,
+                              Odd_barcode_md_file = NULL,
+                              full_barcode_col = "BC",
+                              condition_col = "condition",
+                              Odd_barcode_col = "Odd_barcode",
+                              Odd_barcode_position = 2,
                               seurat_assay_name = "RNA",
                               seurat_min_cells = 0,
                               seurat_names_field = 1L,
@@ -519,6 +812,13 @@ MultiLoomAsSeurat <- function(loom_paths,
                  gmm_cell_calling = gmm_cell_calling,
                  gmm_k = gmm_k,
                  gmm_verbose = gmm_verbose,
+                 resolve_duplicates = resolve_duplicates,
+                 Add_Odd_bc_md = Add_Odd_bc_md,
+                 Odd_barcode_md_file = Odd_barcode_md_file,
+                 full_barcode_col = full_barcode_col,
+                 condition_col = condition_col,
+                 Odd_barcode_col = Odd_barcode_col,
+                 Odd_barcode_position = Odd_barcode_position,
                  seurat_assay_name = seurat_assay_name,
                  seurat_min_cells = seurat_min_cells,
                  seurat_names_field = seurat_names_field,
