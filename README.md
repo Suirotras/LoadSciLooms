@@ -23,6 +23,9 @@ In short:
 
 > **SciT_snakemake → `.loom` files → LoadSciLooms → Seurat-based analysis**
 
+For more information, visit the
+[LoadSciLooms web page](https://suirotras.github.io/LoadSciLooms/).
+
 ---
 
 ## Relationship to `SciT_snakemake`
