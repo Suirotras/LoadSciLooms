@@ -128,7 +128,31 @@ Results:
 
 SciT-datasets often combine multiple treatments or conditions. Using the Odd-barcodes of the cells, we can annotate this metadata when loading the Seurat objects.
 
-Below is an example:
+For this functionalty, you need to provide a comma-seperated file that links Odd-barcode IDs to metadata. It takes the form of two columns:
+
+```csv
+Odd_barcode,Condition
+Odd2Bo1,DMSO
+Odd2Bo2,DMSO
+Odd2Bo3,DMSO
+---
+Odd2Bo25,Treatment_A
+Odd2Bo26,Treatment_A
+Odd2Bo27,Treatment_A
+---
+Odd2Bo52,Treatment_B
+Odd2Bo53,Treatment_B
+Odd2Bo54,Treatment_B
+---
+Odd2Bo79,Treatment_C
+Odd2Bo80,Treatment_C
+Odd2Bo81,Treatment_C
+```
+
+An example file can be found [here](./inst/extdata/Odd_barcode_md.csv).
+You can change this to the layout that matches your sciT-dataset.
+
+Below is an example of how this file is used:
 
 ```R
 loom_file <- system.file("extdata", "i31_GSK126_subsample.loom",
