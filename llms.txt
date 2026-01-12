@@ -154,7 +154,7 @@ Odd2Bo81,Treatment_C
 ```
 
 An example file can be found
-[here](https://suirotras.github.io/LoadSciLooms/inst/extdata/Odd_barcode_md.csv).
+[here](https://github.com/Suirotras/LoadSciLooms/blob/master/inst/extdata/Odd_barcode_md.csv).
 You can change this to the layout that matches your sciT-dataset.
 
 Below is an example of how this file is used:
