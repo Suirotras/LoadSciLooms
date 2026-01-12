@@ -83,8 +83,10 @@ subset_loom_file(full_loom_path = paste0("/Users/jari/Hubrecht_data/projects/",
                  subsampled_loom_path = "inst/extdata/i5_d17_subsample.loom",
                  cell_subset = 1:150, gene_subset = 1:5000)
 
-#rhdf5::h5ls(subsampled_loom_path)
-#rhdf5::h5ls(paste0("/Users/jari/Hubrecht_data/projects/NPC/",
-#                   "KIN9199_TDT3/results/",
-#                   "DamID_snakemake_only_index1/libraries/",
-#                   "i1-TDT3-ES/transcriptome_se.loom"))
+subset_loom_file(full_loom_path = paste0("/Users/jari/Hubrecht_data/projects/",
+                                         "SciT_snakemake/KIN10808/data/",
+                                         "sciT_snakemake_results/",
+                                         "libraries/i31-FV-GSK126-1K/",
+                                         "transcriptome_se.loom"),
+                 subsampled_loom_path = "inst/extdata/i31_GSK126_subsample.loom",
+                 cell_subset = 1:150, gene_subset = 1:5000)
