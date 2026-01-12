@@ -214,8 +214,26 @@ Downstream analysis (clustering, annotation, visualization)</code></pre>
 <h2 id="optional-odd-barcode-mediated-metadata-annotation">Optional: Odd-barcode mediated metadata annotation<a class="anchor" aria-label="anchor" href="#optional-odd-barcode-mediated-metadata-annotation"></a>
 </h2>
 <p>SciT-datasets often combine multiple treatments or conditions. Using the Odd-barcodes of the cells, we can annotate this metadata when loading the Seurat objects.</p>
-<p>Below is an example:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<p>For this functionalty, you need to provide a comma-seperated file that links Odd-barcode IDs to metadata. It takes the form of two columns:</p>
+<pre class="csv"><code>Odd_barcode,Condition
+Odd2Bo1,DMSO
+Odd2Bo2,DMSO
+Odd2Bo3,DMSO
+---
+Odd2Bo25,Treatment_A
+Odd2Bo26,Treatment_A
+Odd2Bo27,Treatment_A
+---
+Odd2Bo52,Treatment_B
+Odd2Bo53,Treatment_B
+Odd2Bo54,Treatment_B
+---
+Odd2Bo79,Treatment_C
+Odd2Bo80,Treatment_C
+Odd2Bo81,Treatment_C</code></pre>
+<p>An example file can be found <a href="./inst/extdata/Odd_barcode_md.csv">here</a>. You can change this to the layout that matches your sciT-dataset.</p>
+<p>Below is an example of how this file is used:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">loom_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"i31_GSK126_subsample.loom"</span>,</span>
 <span>  package <span class="op">=</span> <span class="st">"LoadSciLooms"</span><span class="op">)</span></span>
 <span><span class="va">odd_md_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"Odd_barcode_md.csv"</span>,</span>
@@ -238,7 +256,7 @@ Downstream analysis (clustering, annotation, visualization)</code></pre>
 <h2 id="loading-and-merging-multiple-scit-libraries">Loading and merging multiple sciT libraries<a class="anchor" aria-label="anchor" href="#loading-and-merging-multiple-scit-libraries"></a>
 </h2>
 <p>For experiments processed as multiple sciT libraries:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">loom_paths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"i31-sample1-1K"</span> <span class="op">=</span> <span class="st">"path/to/i31-sample1-1K.loom"</span>,</span>
 <span>  <span class="st">"i31-sample2-10K"</span> <span class="op">=</span> <span class="st">"path/to/i31-sample2-10K.loom"</span></span>
@@ -266,7 +284,7 @@ Downstream analysis (clustering, annotation, visualization)</code></pre>
 <li>Default behavior: error</li>
 <li>Optional behavior: automatically resolve duplicates</li>
 </ul>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load as seuratobject</span></span>
 <span><span class="va">Loom_path</span> <span class="op">&lt;-</span> <span class="st">"path/to/libraries/i31-sample1-1K/transcriptome_se.loom"</span></span>
 <span><span class="va">lseurat</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/LoomAsSeurat.html">LoomAsSeurat</a></span><span class="op">(</span><span class="va">Loom_path</span>, matrix_rowname_col <span class="op">=</span> <span class="st">"name"</span>,</span>
