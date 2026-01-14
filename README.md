@@ -2,7 +2,6 @@
 
 *A companion R package for the sciT-snakemake workflow*
 
-
 ## Overview
 
 **LoadSciLooms** is an R package designed as a **companion to the
