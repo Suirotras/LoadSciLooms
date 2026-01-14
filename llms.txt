@@ -27,7 +27,7 @@ In short:
 > analysis**
 
 For more information, visit the [LoadSciLooms web
-page](https://suirotras.github.io/LoadSciLooms/).
+page](https://jari-van-diermen.github.io/LoadSciLooms/).
 
 ------------------------------------------------------------------------
 
