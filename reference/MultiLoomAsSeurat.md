@@ -2,7 +2,7 @@
 
 This function converts multiple transcriptome loom files into individual
 Seurat objects using
-[`LoomAsSeurat`](https://suirotras.github.io/LoadSciLooms/reference/LoomAsSeurat.md)
+[`LoomAsSeurat`](https://jari-van-diermen.github.io/LoadSciLooms/reference/LoomAsSeurat.md)
 and optionally merges them into a single Seurat object. Each loom file
 is tracked by a user-supplied identifier, which is stored in the
 cell-level metadata of the resulting Seurat object(s).
@@ -199,8 +199,8 @@ unmerged objects are retained.
 
 ## See also
 
-[`LoomAsSeurat`](https://suirotras.github.io/LoadSciLooms/reference/LoomAsSeurat.md),
-[`Add_odd_barcode_metadata`](https://suirotras.github.io/LoadSciLooms/reference/Add_odd_barcode_metadata.md)
+[`LoomAsSeurat`](https://jari-van-diermen.github.io/LoadSciLooms/reference/LoomAsSeurat.md),
+[`Add_odd_barcode_metadata`](https://jari-van-diermen.github.io/LoadSciLooms/reference/Add_odd_barcode_metadata.md)
 
 ## Examples
 
