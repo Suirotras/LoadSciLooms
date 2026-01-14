@@ -14,4 +14,4 @@ Imports:
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-URL: https://suirotras.github.io/LoadSciLooms/
+URL: https://suirotras.github.io/LoadSciLooms/, https://jari-van-diermen.github.io/LoadSciLooms/
